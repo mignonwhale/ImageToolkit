@@ -28,6 +28,33 @@ def build_error_message(original_file_name: str, error_detail: str) -> str:
     return f"'{original_file_name}' 처리 중 오류가 발생했습니다: {error_detail}"
 
 
+def build_error_message_from_exception(original_file_name: str, error: Exception) -> str:
+    """
+    발생한 예외의 종류를 분석하여, 사용자가 원인을 짐작할 수 있는 구체적인 한글 오류 메시지를 생성한다.
+
+    Args:
+        original_file_name: 처리 중 오류가 발생한 원본 파일명
+        error: 처리 중 발생한 예외 객체
+
+    Returns:
+        사용자에게 보여줄 한글 오류 메시지
+    """
+    error_type_name = type(error).__name__
+
+    if "UnidentifiedImage" in error_type_name:
+        error_detail = "이미지 파일이 손상되었거나 지원하지 않는 형식입니다."
+    elif isinstance(error, MemoryError):
+        error_detail = "이미지 용량이 너무 커서 처리할 메모리가 부족합니다. 더 작은 이미지로 다시 시도해주세요."
+    elif isinstance(error, (ConnectionError, TimeoutError)):
+        error_detail = "AI 모델을 다운로드하는 중 네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요."
+    elif isinstance(error, OSError):
+        error_detail = "파일을 읽는 중 오류가 발생했습니다. 파일이 손상되지 않았는지 확인해주세요."
+    else:
+        error_detail = str(error)
+
+    return build_error_message(original_file_name, error_detail)
+
+
 def build_progress_text(current_index: int, total_count: int, current_file_name: str) -> str:
     """처리 진행 상황 텍스트를 생성한다. 예: '3 / 10 처리 중... (파일명.jpg)'"""
     return f"{current_index} / {total_count} 처리 중... ({current_file_name})"

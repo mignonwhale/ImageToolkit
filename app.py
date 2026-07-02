@@ -11,6 +11,7 @@ from file_handler import convert_image_to_png_bytes, build_zip_file_from_results
 from utils import (
     is_supported_image_file,
     build_error_message,
+    build_error_message_from_exception,
     build_progress_text,
     build_result_file_name,
 )
@@ -19,9 +20,9 @@ from utils import (
 # - birefnet 계열: 이미 정밀한 마스크를 만들기 때문에 알파매팅이 불필요 (오히려 경계를 해칠 수 있음)
 # - u2net/isnet 계열: 마스크가 비교적 거칠어 알파매팅으로 경계를 다듬는 것이 도움이 됨
 MODEL_ALPHA_MATTING_RECOMMENDATION = {
-    "isnet-general-use": True,
     "birefnet-general": False,
     "birefnet-general-lite": False,
+    "isnet-general-use": True,
     "u2net": True,
     "u2netp": True,
 }
@@ -90,18 +91,18 @@ with st.expander("⚙️ 고급 옵션 (경계선이 잘리거나 뭉개질 때 
         options=MODEL_OPTIONS,
         key="selected_model_name",
         on_change=sync_alpha_matting_with_selected_model,
-        help="isnet-general-use: 일반 사물/아이콘 경계 인식에 적합\n"
-             "birefnet-general: 사진처럼 배경이 복잡할 때 가장 정밀함 (기본값 권장, 처리 다소 느림)\n"
+        help="birefnet-general: 사진처럼 배경이 복잡할 때 가장 정밀함 (기본값 권장, 처리 다소 느림)\n"
              "birefnet-general-lite: birefnet-general보다 가볍고 빠른 경량 버전\n"             
+             "isnet-general-use: 일반 사물/아이콘 경계 인식에 적합\n"
              "u2net: 범용 모델, 처리 속도 빠름\n"
              "u2netp: 경량 모델, 정확도는 낮지만 매우 빠름",
     )
 
     st.caption("""
     **모델 설명**
-    - isnet-general-use : 일반 사물/아이콘 경계 인식에 적합
     - birefnet-general : 사진처럼 배경이 복잡할 때 가장 정밀 (기본값 권장, 처리 다소 느림)
     - birefnet-general-lite : 경량 버전
+    - isnet-general-use : 일반 사물/아이콘 경계 인식에 적합
     - u2net : 범용
     - u2netp : 경량 모델, 정확도는 낮지만 매우 빠름
     """)
@@ -207,7 +208,7 @@ if start_processing_button and uploaded_files:
             )
         except Exception as processing_error:
             error_messages.append(
-                build_error_message(uploaded_file.name, str(processing_error))
+                build_error_message_from_exception(uploaded_file.name, processing_error)
             )
 
         progress_bar.progress(index / total_count)
@@ -233,7 +234,7 @@ if start_processing_button and uploaded_files:
 if st.session_state.processed_results:
     st.header("3. 결과 미리보기")
 
-    for result_item in st.session_state.processed_results:
+    for preview_index, result_item in enumerate(st.session_state.processed_results):
         st.subheader(result_item["original_file_name"])
         preview_column_before, preview_column_after = st.columns([2, 4])
 
@@ -253,7 +254,7 @@ if st.session_state.processed_results:
             data=image_bytes,
             file_name=result_file_name,
             mime="image/png",
-            key=f"download_{result_item['original_file_name']}",
+            key=f"download_{preview_index}_{result_item['original_file_name']}",
             type="primary",
         )
         st.divider()
@@ -262,11 +263,15 @@ if st.session_state.processed_results:
     # 4단계: 전체 결과 ZIP 일괄 다운로드
     # ------------------------------------------------------------------
     st.header("4. 전체 결과 다운로드")
-    zip_file_bytes = build_zip_file_from_results(st.session_state.processed_results)
-    st.download_button(
-        label=f"전체 결과 ZIP으로 다운로드 ({len(st.session_state.processed_results)}건)",
-        data=zip_file_bytes,
-        file_name="배경제거_결과_전체.zip",
-        mime="application/zip",
-        type="primary",
-    )
+    try:
+        zip_file_bytes = build_zip_file_from_results(st.session_state.processed_results)
+        st.download_button(
+            label=f"전체 결과 ZIP으로 다운로드 ({len(st.session_state.processed_results)}건)",
+            data=zip_file_bytes,
+            file_name="배경제거_결과_전체.zip",
+            mime="application/zip",
+            type="primary",
+        )
+    except Exception as zip_error:
+        st.error(f"ZIP 파일을 만드는 중 오류가 발생했습니다: {zip_error}")
+        st.caption("개별 다운로드 버튼으로 파일을 하나씩 받아주세요.")
