@@ -61,7 +61,18 @@ def build_progress_text(current_index: int, total_count: int, current_file_name:
 
 
 def build_result_file_name(original_file_name: str) -> str:
-    """결과 파일명을 규칙에 맞게 생성한다. 예: 원본파일명_배경제거_YYYY-MM-DD.png"""
+    """결과 파일명을 규칙에 맞게 생성한다. 예: 원본파일명_removed_YYYY-MM-DD.png"""
     base_name = original_file_name.rsplit(".", 1)[0] if "." in original_file_name else original_file_name
     today_date_string = get_today_date_string()
     return f"{base_name}_removed_{today_date_string}.png"
+
+
+def build_resized_file_name(original_file_name: str, target_width: int, target_height: int) -> str:
+    """
+    크기 조정 결과 파일명을 규칙에 맞게 생성한다.
+    예: 원본파일명_resized_1024x768_YYYY-MM-DD.png
+    """
+    base_name = original_file_name.rsplit(".", 1)[0] if "." in original_file_name else original_file_name
+    extension = original_file_name.rsplit(".", 1)[-1].lower() if "." in original_file_name else "png"
+    today_date_string = get_today_date_string()
+    return f"{base_name}_resized_{target_width}x{target_height}_{today_date_string}.{extension}"

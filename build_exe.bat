@@ -1,6 +1,6 @@
 @echo off
 REM ============================================================
-REM Image Background Remover - exe build script
+REM Image Toolkit - exe build script
 REM Run this file on a Windows PC where venv already exists.
 REM Usage: double-click this file, or run "build_exe.bat" in the project folder.
 REM ============================================================
@@ -23,21 +23,21 @@ if errorlevel 1 (
 
 echo [3/4] Cleaning up previous build files...
 echo Closing any running instance of the program (if any)...
-taskkill /IM ImageBackgroundRemover.exe /F >nul 2>&1
+taskkill /IM ImageToolkit.exe /F >nul 2>&1
 timeout /t 2 /nobreak >nul
 if exist build rmdir /s /q build
 if exist dist rmdir /s /q dist
 if exist dist (
     echo.
     echo ERROR: Could not remove the dist folder. A file inside may still be in use.
-    echo Please close ImageBackgroundRemover.exe manually via Task Manager, then run this script again.
+    echo Please close ImageToolkit.exe manually via Task Manager, then run this script again.
     pause
     exit /b 1
 )
-if exist ImageBackgroundRemover.spec del /q ImageBackgroundRemover.spec
+if exist ImageToolkit.spec del /q ImageToolkit.spec
 
 echo [4/4] Building the exe file... (this can take a few minutes)
-pyinstaller --onefile --noconsole --name ImageBackgroundRemover --splash "splash.png" --collect-all streamlit --collect-all rembg --collect-all onnxruntime --collect-all pymatting --collect-all scipy --collect-all pooch --add-data "app.py;." --add-data "background_remover.py;." --add-data "file_handler.py;." --add-data "utils.py;." run_app.py
+pyinstaller --onefile --noconsole --name ImageToolkit --splash "splash.png" --collect-all streamlit --collect-all rembg --collect-all onnxruntime --collect-all pymatting --collect-all scipy --collect-all pooch --add-data "app.py;." --add-data "home.py;." --add-data "background_remover.py;." --add-data "image_resizer.py;." --add-data "file_handler.py;." --add-data "utils.py;." --add-data "app_pages;app_pages" run_app.py
 
 if errorlevel 1 (
     echo.
@@ -49,7 +49,7 @@ if errorlevel 1 (
 echo.
 echo ============================================================
 echo Build complete!
-echo Output file: dist\ImageBackgroundRemover.exe
+echo Output file: dist\ImageToolkit.exe
 echo You can rename this file to Korean afterward if you like,
 echo then share this single file with other users.
 echo ============================================================
