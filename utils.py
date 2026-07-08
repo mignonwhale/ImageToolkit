@@ -3,9 +3,14 @@
 - 처리 진행 상황 표시
 - 한글 오류 메시지 관리
 - 날짜 형식 통일 (YYYY-MM-DD)
+- 이미지 미리보기용 크기 계산 및 base64 인코딩
 """
 
+import base64
+import io
 from datetime import datetime
+
+from PIL import Image
 
 
 # 지원하는 이미지 확장자 목록
@@ -76,3 +81,53 @@ def build_resized_file_name(original_file_name: str, target_width: int, target_h
     extension = original_file_name.rsplit(".", 1)[-1].lower() if "." in original_file_name else "png"
     today_date_string = get_today_date_string()
     return f"{base_name}_resized_{target_width}x{target_height}_{today_date_string}.{extension}"
+
+
+def compute_contained_display_width(original_width: int, original_height: int, max_box_size: int) -> int:
+    """
+    이미지 비율을 유지한 채, 가로/세로 각각 max_box_size를 넘지 않도록 화면에 표시할 가로 픽셀(px) 값을 계산한다.
+    (정사각형 박스 안에 이미지를 온전히 담기 위한 용도. 예: 300x300, 600x600 박스)
+
+    Args:
+        original_width: 원본 이미지 가로 픽셀
+        original_height: 원본 이미지 세로 픽셀
+        max_box_size: 정사각형 박스의 한 변 크기 (px)
+
+    Returns:
+        박스 안에 비율을 유지하며 들어가는 표시용 가로 픽셀(px) 값
+    """
+    if original_width <= 0 or original_height <= 0:
+        return max_box_size
+
+    scale_factor = min(max_box_size / original_width, max_box_size / original_height)
+    return max(1, round(original_width * scale_factor))
+
+
+def encode_image_to_thumbnail_data_url(image: Image.Image, max_box_size: int) -> str:
+    """
+    이미지를 max_box_size x max_box_size 박스 안에 비율을 유지하며 축소한 뒤,
+    <img> 태그에 바로 사용할 수 있는 base64 data URL 문자열로 인코딩한다.
+
+    일반 st.image 대신 순수 HTML <img> 태그로 렌더링할 때 사용한다.
+    (Streamlit 기본 이미지 위젯에 딸려오는 '확대(전체화면 보기)' 기능이 필요 없는
+    업로드 미리보기 썸네일 전용 용도)
+
+    Args:
+        image: 원본 PIL Image 객체
+        max_box_size: 정사각형 박스의 한 변 크기 (px)
+
+    Returns:
+        "data:image/png;base64,..." 형태의 문자열
+    """
+    original_width, original_height = image.size
+    display_width = compute_contained_display_width(original_width, original_height, max_box_size)
+    scale_factor = display_width / original_width if original_width > 0 else 1
+    display_height = max(1, round(original_height * scale_factor))
+
+    thumbnail_image = image.convert("RGBA")
+    thumbnail_image = thumbnail_image.resize((display_width, display_height), Image.LANCZOS)
+
+    buffer = io.BytesIO()
+    thumbnail_image.save(buffer, format="PNG")
+    encoded_string = base64.b64encode(buffer.getvalue()).decode("utf-8")
+    return f"data:image/png;base64,{encoded_string}"

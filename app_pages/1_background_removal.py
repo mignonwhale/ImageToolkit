@@ -3,6 +3,8 @@
 동작 흐름: 이미지파일 업로드 > 배경없앤 이미지 미리보기 > 결과파일 자동 다운로드
 """
 
+import io
+
 import streamlit as st
 from PIL import Image
 
@@ -14,6 +16,8 @@ from utils import (
     build_error_message_from_exception,
     build_progress_text,
     build_result_file_name,
+    compute_contained_display_width,
+    encode_image_to_thumbnail_data_url,
 )
 
 # 모델별 알파매팅 필요 여부
@@ -50,6 +54,17 @@ if "bg_processed_results" not in st.session_state:
 if "bg_last_uploaded_file_signature" not in st.session_state:
     st.session_state.bg_last_uploaded_file_signature = ()
 
+# 실제 업로드된 파일을 보관하는 저장소 (서명 -> {name, size, bytes})
+# 파일 업로더 위젯 자체가 아니라 이 저장소를 기준으로 미리보기/처리를 진행하므로,
+# 개별 파일을 삭제해도 업로더 쪽에 파일명이 남아있는 문제가 생기지 않는다.
+if "bg_uploaded_files_store" not in st.session_state:
+    st.session_state.bg_uploaded_files_store = {}
+
+# 업로더 위젯의 key에 사용되는 번호. 새 파일을 저장소로 옮긴 뒤 이 값을 올려서
+# 업로더 위젯을 완전히 새로 만들어(=항상 빈 상태로) 파일명이 계속 남아있지 않도록 한다.
+if "bg_uploader_reset_counter" not in st.session_state:
+    st.session_state.bg_uploader_reset_counter = 0
+
 # 고급 옵션 초기값 설정 (최초 1회만) - 기본 모델(birefnet-general) 기준으로 알파매팅 초기값 결정
 if "bg_selected_model_name" not in st.session_state:
     st.session_state.bg_selected_model_name = MODEL_OPTIONS[0]
@@ -59,18 +74,46 @@ if "bg_enable_alpha_matting" not in st.session_state:
 # ------------------------------------------------------------------
 # 1단계: 이미지 파일 업로드
 # ------------------------------------------------------------------
-st.header("1. 이미지 업로드")
-uploaded_files = st.file_uploader(
-    "배경을 제거할 이미지를 선택하세요 (여러 장 선택 가능, 파일을 이 영역으로 끌어다 놓아도 됩니다)",
-    type=["jpg", "jpeg", "png", "bmp", "webp"],
-    accept_multiple_files=True,
-    key="bg_file_uploader",
-)
+header_column, count_column = st.columns([5, 1])
+with header_column:
+    st.header("1. 이미지 업로드")
+
+with st.expander("이미지 선택", expanded=len(st.session_state.bg_uploaded_files_store) == 0):
+    newly_selected_files = st.file_uploader(
+        "배경을 제거할 이미지를 선택하세요 (여러 장 선택 가능, 파일을 이 영역으로 끌어다 놓아도 됩니다)",
+        type=["jpg", "jpeg", "png", "bmp", "webp"],
+        accept_multiple_files=True,
+        key=f"bg_file_uploader_{st.session_state.bg_uploader_reset_counter}",
+    )
+
+# 새로 선택된 파일을 저장소로 옮긴다 (이미 저장소에 있는 파일은 건너뛴다)
+has_newly_added_file = False
+for newly_selected_file in newly_selected_files or []:
+    file_signature = (newly_selected_file.name, newly_selected_file.size)
+    if file_signature not in st.session_state.bg_uploaded_files_store:
+        st.session_state.bg_uploaded_files_store[file_signature] = {
+            "name": newly_selected_file.name,
+            "size": newly_selected_file.size,
+            "bytes": newly_selected_file.getvalue(),
+        }
+        has_newly_added_file = True
+
+if has_newly_added_file:
+    # 업로더 위젯의 key를 바꿔 완전히 새(빈) 상태로 리셋한다
+    st.session_state.bg_uploader_reset_counter += 1
+    st.rerun()
+
+# 이후 모든 로직은 저장소에 있는 파일을 기준으로 동작한다
+active_files = list(st.session_state.bg_uploaded_files_store.values())
+
+with count_column:
+    st.markdown(
+        f"<div style='text-align:right; padding-top:0.6rem; font-weight:600;'>총 {len(active_files)}개 업로드</div>",
+        unsafe_allow_html=True,
+    )
 
 # 업로드된 파일 목록(이름+크기)으로 서명을 만들어, 이전 업로드와 달라졌는지 감지한다
-current_uploaded_file_signature = (
-    tuple(sorted((file.name, file.size) for file in uploaded_files)) if uploaded_files else ()
-)
+current_uploaded_file_signature = tuple(sorted(st.session_state.bg_uploaded_files_store.keys()))
 
 if current_uploaded_file_signature != st.session_state.bg_last_uploaded_file_signature:
     # 업로드 파일이 새로 추가/변경/삭제된 경우, 이전 배경 제거 결과는 더 이상 유효하지 않으므로 초기화한다
@@ -79,11 +122,34 @@ if current_uploaded_file_signature != st.session_state.bg_last_uploaded_file_sig
         st.info("업로드된 파일이 변경되어 이전 배경 제거 결과를 초기화했습니다.")
     st.session_state.bg_last_uploaded_file_signature = current_uploaded_file_signature
 
-if uploaded_files:
-    st.write(f"총 **{len(uploaded_files)}개** 파일이 업로드되었습니다.")
-    with st.expander("업로드된 파일 목록 보기"):
-        for uploaded_file in uploaded_files:
-            st.write(f"- {uploaded_file.name}")
+if active_files:
+    st.subheader("업로드한 이미지 미리보기")
+    preview_gallery_columns = st.columns(4)
+    for preview_index, active_file in enumerate(active_files):
+        gallery_column = preview_gallery_columns[preview_index % 4]
+        file_signature = (active_file["name"], active_file["size"])
+
+        with gallery_column:
+            title_column, close_button_column = st.columns([5, 1])
+            with title_column:
+                st.caption(active_file["name"])
+            with close_button_column:
+                if st.button("✕", key=f"bg_remove_{preview_index}_{file_signature}", help="이 이미지를 목록에서 제거"):
+                    del st.session_state.bg_uploaded_files_store[file_signature]
+                    st.rerun()
+
+            try:
+                preview_image = Image.open(io.BytesIO(active_file["bytes"]))
+                preview_width, preview_height = preview_image.size
+                thumbnail_data_url = encode_image_to_thumbnail_data_url(preview_image, 300)
+                # 일반 st.image 대신 순수 HTML <img>로 렌더링하여 불필요한 확대(전체화면) 기능을 없앤다
+                st.markdown(
+                    f"<img src='{thumbnail_data_url}' style='display:block;' />",
+                    unsafe_allow_html=True,
+                )
+                st.caption(f"{preview_width}x{preview_height}px")
+            except Exception:
+                st.warning(f"'{active_file['name']}' 미리보기를 불러올 수 없습니다.")
 
 # ------------------------------------------------------------------
 # 고급 옵션: 모델 선택 및 경계선 정밀 보정(알파매팅)
@@ -168,30 +234,31 @@ with st.expander("⚙️ 고급 옵션 (경계선이 잘리거나 뭉개질 때 
 # ------------------------------------------------------------------
 st.header("2. 배경 제거 처리")
 
-start_processing_button = st.button("배경 제거 시작", type="primary", disabled=not uploaded_files)
+start_processing_button = st.button("배경 제거 시작", type="primary", disabled=not active_files)
 
-if start_processing_button and uploaded_files:
+if start_processing_button and active_files:
     st.session_state.bg_processed_results = []
 
     progress_bar = st.progress(0)
     status_text = st.empty()
     error_messages = []
 
-    total_count = len(uploaded_files)
+    total_count = len(active_files)
 
-    for index, uploaded_file in enumerate(uploaded_files, start=1):
-        status_text.info(build_progress_text(index, total_count, uploaded_file.name))
+    for index, active_file in enumerate(active_files, start=1):
+        file_name = active_file["name"]
+        status_text.info(build_progress_text(index, total_count, file_name))
 
         # 지원하지 않는 파일 형식 검사
-        if not is_supported_image_file(uploaded_file.name):
+        if not is_supported_image_file(file_name):
             error_messages.append(
-                build_error_message(uploaded_file.name, "지원하지 않는 파일 형식입니다.")
+                build_error_message(file_name, "지원하지 않는 파일 형식입니다.")
             )
             progress_bar.progress(index / total_count)
             continue
 
         try:
-            original_image = Image.open(uploaded_file).convert("RGBA")
+            original_image = Image.open(io.BytesIO(active_file["bytes"])).convert("RGBA")
             result_image = remove_background_from_image(
                 original_image,
                 model_name=selected_model_name,
@@ -204,14 +271,14 @@ if start_processing_button and uploaded_files:
 
             st.session_state.bg_processed_results.append(
                 {
-                    "original_file_name": uploaded_file.name,
+                    "original_file_name": file_name,
                     "original_image": original_image,
                     "result_image": result_image,
                 }
             )
         except Exception as processing_error:
             error_messages.append(
-                build_error_message_from_exception(uploaded_file.name, processing_error)
+                build_error_message_from_exception(file_name, processing_error)
             )
 
         progress_bar.progress(index / total_count)
@@ -239,14 +306,12 @@ if st.session_state.bg_processed_results:
 
     for preview_index, result_item in enumerate(st.session_state.bg_processed_results):
         st.subheader(result_item["original_file_name"])
-        preview_column_before, preview_column_after = st.columns([2, 4])
+        st.caption("배경 제거 결과")
 
-        with preview_column_before:
-            st.caption("원본")
-            st.image(result_item["original_image"], width=160)
-
-        with preview_column_after:
-            st.caption("배경 제거 결과")
+        # 결과 이미지를 가운데 정렬하기 위해 좌우에 여백 컬럼을 둔다
+        # width는 지정하지 않아, 확대(전체화면) 시 원본 해상도가 그대로 보이도록 한다
+        left_margin_column, image_column, right_margin_column = st.columns([1, 2, 1])
+        with image_column:
             st.image(result_item["result_image"])
 
         # 개별 파일 다운로드 버튼
