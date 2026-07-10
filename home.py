@@ -12,7 +12,7 @@ st.write("왼쪽 사이드바에서 사용할 도구를 선택해주세요.")
 
 st.divider()
 
-tool_column1, tool_column2 = st.columns(2)
+tool_column1, tool_column2, tool_column3 = st.columns(3)
 
 with tool_column1:
     st.subheader("🖼️ 이미지 배경 제거")
@@ -23,3 +23,8 @@ with tool_column2:
     st.subheader("📐 이미지 크기 조정")
     st.write("여러 장의 이미지를 원하는 픽셀 또는 비율로 한 번에 크기 조정합니다.")
     st.page_link("app_pages/2_image_resize.py", label="크기 조정 도구 열기", icon="➡️")
+
+with tool_column3:
+    st.subheader("✂️ 여백/영역 자르기")
+    st.write("투명 배경은 요소 영역을 자동 제안하고, 일반 이미지는 직접 영역을 지정해 자릅니다.")
+    st.page_link("app_pages/3_crop_image.py", label="자르기 도구 열기", icon="➡️")

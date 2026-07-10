@@ -83,6 +83,17 @@ def build_resized_file_name(original_file_name: str, target_width: int, target_h
     return f"{base_name}_resized_{target_width}x{target_height}_{today_date_string}.{extension}"
 
 
+def build_cropped_file_name(original_file_name: str) -> str:
+    """
+    자르기(크롭) 결과 파일명을 규칙에 맞게 생성한다.
+    예: 원본파일명_cropped_YYYY-MM-DD.png
+    """
+    base_name = original_file_name.rsplit(".", 1)[0] if "." in original_file_name else original_file_name
+    extension = original_file_name.rsplit(".", 1)[-1].lower() if "." in original_file_name else "png"
+    today_date_string = get_today_date_string()
+    return f"{base_name}_cropped_{today_date_string}.{extension}"
+
+
 def compute_contained_display_width(original_width: int, original_height: int, max_box_size: int) -> int:
     """
     이미지 비율을 유지한 채, 가로/세로 각각 max_box_size를 넘지 않도록 화면에 표시할 가로 픽셀(px) 값을 계산한다.

@@ -9,6 +9,7 @@ import streamlit as st
 from PIL import Image
 
 from background_remover import remove_background_from_image
+from image_cropper import compute_trim_bounding_box, crop_image_to_box
 from file_handler import convert_image_to_png_bytes, build_zip_file_from_results
 from utils import (
     is_supported_image_file,
@@ -229,6 +230,14 @@ with st.expander("⚙️ 고급 옵션 (경계선이 잘리거나 뭉개질 때 
              "함께 잘릴 수 있습니다. 문제가 없다면 낮게, 얼룩이 남으면 조금씩만 올려보세요.",
     )
 
+    enable_auto_trim_transparent_margin = st.checkbox(
+        "투명 여백 자동 잘라내기",
+        value=False,
+        help="배경 제거 후 남는 투명 여백을 요소 영역만 남기고 자동으로 잘라냅니다. "
+             "요소가 조금이라도 잘리지 않도록 안전하게 계산되며, 결과 미리보기에서 확인 후 다운로드할 수 있습니다. "
+             "더 세밀하게 영역을 확인하거나 직접 조정하고 싶다면 '자르기' 도구를 별도로 이용해주세요.",
+    )
+
 # ------------------------------------------------------------------
 # 2단계: 배경 제거 처리 실행
 # ------------------------------------------------------------------
@@ -268,6 +277,12 @@ if start_processing_button and active_files:
                 hole_bridging_size=hole_bridging_size_value,
                 alpha_cleanup_threshold=alpha_cleanup_threshold_value,
             )
+
+            if enable_auto_trim_transparent_margin:
+                trim_box = compute_trim_bounding_box(result_image)
+                # 요소가 하나도 없거나(완전 투명), 이미 여백이 없는 경우는 그대로 둔다
+                if trim_box is not None and trim_box != (0, 0, result_image.width, result_image.height):
+                    result_image = crop_image_to_box(result_image, trim_box)
 
             st.session_state.bg_processed_results.append(
                 {

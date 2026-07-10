@@ -12,6 +12,7 @@ import streamlit as st
 home_page = st.Page("home.py", title="홈", icon="🧰", default=True)
 background_removal_page = st.Page("app_pages/1_background_removal.py", title="배경 제거", icon="🖼️")
 image_resize_page = st.Page("app_pages/2_image_resize.py", title="크기 조정", icon="📐")
+crop_image_page = st.Page("app_pages/3_crop_image.py", title="자르기", icon="✂️")
 
-selected_page = st.navigation([home_page, background_removal_page, image_resize_page])
+selected_page = st.navigation([home_page, background_removal_page, image_resize_page, crop_image_page])
 selected_page.run()
