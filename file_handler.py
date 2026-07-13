@@ -12,21 +12,32 @@ from PIL import Image
 from utils import build_result_file_name
 
 
-def convert_image_to_png_bytes(image: Image.Image) -> bytes:
-    """PIL Image 객체를 PNG 형식의 바이트 데이터로 변환한다. (배경 제거 결과처럼 투명도가 필요한 경우 사용)"""
+def convert_image_to_png_bytes(image: Image.Image, dpi: tuple | None = None) -> bytes:
+    """
+    PIL Image 객체를 PNG 형식의 바이트 데이터로 변환한다. (배경 제거 결과처럼 투명도가 필요한 경우 사용)
+
+    Args:
+        image: 변환할 PIL Image 객체
+        dpi: 저장할 인쇄 해상도 메타데이터 (예: (300, 300)). None이면 지정하지 않는다.
+    """
+    save_kwargs = {}
+    if dpi is not None:
+        save_kwargs["dpi"] = dpi
+
     image_buffer = io.BytesIO()
-    image.save(image_buffer, format="PNG")
+    image.save(image_buffer, format="PNG", **save_kwargs)
     image_buffer.seek(0)
     return image_buffer.getvalue()
 
 
-def convert_image_to_bytes(image: Image.Image, image_format: str) -> bytes:
+def convert_image_to_bytes(image: Image.Image, image_format: str, dpi: tuple | None = None) -> bytes:
     """
     PIL Image 객체를 지정된 포맷의 바이트 데이터로 변환한다. (크기 조정 결과처럼 원본 포맷을 유지해야 하는 경우 사용)
 
     Args:
         image: 변환할 PIL Image 객체
         image_format: 저장할 이미지 포맷 (예: "PNG", "JPEG", "BMP", "WEBP")
+        dpi: 저장할 인쇄 해상도 메타데이터 (예: (300, 300)). None이면 지정하지 않는다.
 
     Returns:
         지정된 포맷의 바이트 데이터
@@ -42,6 +53,8 @@ def convert_image_to_bytes(image: Image.Image, image_format: str) -> bytes:
         if save_target_image.mode in ("RGBA", "P", "LA"):
             save_target_image = save_target_image.convert("RGB")
         save_kwargs["quality"] = 95
+    if dpi is not None:
+        save_kwargs["dpi"] = dpi
 
     image_buffer = io.BytesIO()
     save_target_image.save(image_buffer, format=normalized_format, **save_kwargs)
@@ -99,7 +112,8 @@ def build_zip_file_from_named_results(named_results: list) -> bytes:
     동일한 파일명이 겹치는 경우, 파일이 서로 덮어써지지 않도록 번호를 붙여 구분한다.
 
     Args:
-        named_results: [{"result_file_name": str, "result_image": PIL.Image, "image_format": str}, ...] 형태의 리스트
+        named_results: [{"result_file_name": str, "result_image": PIL.Image, "image_format": str,
+        "dpi": tuple 선택}, ...] 형태의 리스트. "dpi"가 있으면 저장 시 해당 인쇄 해상도 메타데이터를 함께 기록한다.
 
     Returns:
         ZIP 파일의 바이트 데이터
@@ -113,7 +127,9 @@ def build_zip_file_from_named_results(named_results: list) -> bytes:
             used_file_names.add(result_file_name)
 
             image_bytes = convert_image_to_bytes(
-                result_item["result_image"], result_item.get("image_format", "PNG")
+                result_item["result_image"],
+                result_item.get("image_format", "PNG"),
+                dpi=result_item.get("dpi"),
             )
             zip_file.writestr(result_file_name, image_bytes)
 

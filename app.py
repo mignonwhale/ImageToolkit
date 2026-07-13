@@ -10,9 +10,12 @@ st.navigation으로 각 도구 페이지를 등록하고, 사이드바 메뉴와
 import streamlit as st
 
 home_page = st.Page("home.py", title="홈", icon="🧰", default=True)
+edit_image_page = st.Page("app_pages/4_edit_image.py", title="이미지 편집", icon="🪄")
 background_removal_page = st.Page("app_pages/1_background_removal.py", title="배경 제거", icon="🖼️")
 image_resize_page = st.Page("app_pages/2_image_resize.py", title="크기 조정", icon="📐")
 crop_image_page = st.Page("app_pages/3_crop_image.py", title="자르기", icon="✂️")
 
-selected_page = st.navigation([home_page, background_removal_page, image_resize_page, crop_image_page])
+selected_page = st.navigation(
+    [home_page, edit_image_page, background_removal_page, image_resize_page, crop_image_page]
+)
 selected_page.run()

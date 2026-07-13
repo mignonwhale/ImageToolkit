@@ -100,6 +100,35 @@ def calculate_dimensions_by_aspect_ratio(
     return original_width, calculated_height
 
 
+def calculate_dimensions_by_longest_side(
+    original_width: int,
+    original_height: int,
+    target_longest_side: int,
+) -> tuple:
+    """
+    긴 변(가로/세로 중 더 큰 값)이 target_longest_side가 되도록, 비율을 유지하며 최종 크기를 계산한다.
+    원본이 목표값보다 크면 축소, 작으면 확대한다.
+
+    Args:
+        original_width: 원본 이미지 가로 픽셀
+        original_height: 원본 이미지 세로 픽셀
+        target_longest_side: 긴 변이 맞춰질 목표 픽셀 값
+
+    Returns:
+        (계산된 가로 픽셀, 계산된 세로 픽셀) 튜플
+
+    Raises:
+        ValueError: 목표 픽셀 값이 1보다 작은 경우
+    """
+    if target_longest_side < 1:
+        raise ValueError("긴 변 기준 픽셀 값은 1 이상이어야 합니다.")
+
+    scale_factor = target_longest_side / max(original_width, original_height)
+    calculated_width = max(1, round(original_width * scale_factor))
+    calculated_height = max(1, round(original_height * scale_factor))
+    return calculated_width, calculated_height
+
+
 def resize_image(image: Image.Image, target_width: int, target_height: int) -> Image.Image:
     """
     이미지를 지정된 크기로 조정한다. Pillow의 LANCZOS 필터를 사용해 화질 저하를 최소화한다.

@@ -12,6 +12,12 @@ st.write("왼쪽 사이드바에서 사용할 도구를 선택해주세요.")
 
 st.divider()
 
+st.subheader("🪄 이미지 편집 (통합)")
+st.write("업로드 후 버튼 한 번으로 배경 제거 → 여백 제거 → 긴 변 3000px 리사이즈 → 300dpi 적용까지 한 번에 처리합니다.")
+st.page_link("app_pages/4_edit_image.py", label="이미지 편집 열기", icon="➡️")
+
+st.divider()
+
 tool_column1, tool_column2, tool_column3 = st.columns(3)
 
 with tool_column1:

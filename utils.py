@@ -94,6 +94,17 @@ def build_cropped_file_name(original_file_name: str) -> str:
     return f"{base_name}_cropped_{today_date_string}.{extension}"
 
 
+def build_edited_file_name(original_file_name: str) -> str:
+    """
+    이미지 편집(통합) 결과 파일명을 규칙에 맞게 생성한다.
+    결과물은 항상 투명 배경(RGBA)을 가지므로 확장자는 원본과 무관하게 항상 png로 고정한다.
+    예: 원본파일명_edited_YYYY-MM-DD.png
+    """
+    base_name = original_file_name.rsplit(".", 1)[0] if "." in original_file_name else original_file_name
+    today_date_string = get_today_date_string()
+    return f"{base_name}_edited_{today_date_string}.png"
+
+
 def compute_contained_display_width(original_width: int, original_height: int, max_box_size: int) -> int:
     """
     이미지 비율을 유지한 채, 가로/세로 각각 max_box_size를 넘지 않도록 화면에 표시할 가로 픽셀(px) 값을 계산한다.
