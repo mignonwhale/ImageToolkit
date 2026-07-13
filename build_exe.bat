@@ -45,7 +45,7 @@ if exist dist (
 if exist ImageToolkit.spec del /q ImageToolkit.spec
 
 echo [5/5] Building the exe file... (this can take a few minutes)
-pyinstaller --onefile --noconsole --name ImageToolkit --splash "splash.png" --collect-all streamlit --collect-all streamlit_cropper --collect-all rembg --collect-all onnxruntime --collect-all pymatting --collect-all scipy --collect-all pooch --add-data "app.py;." --add-data "home.py;." --add-data "background_remover.py;." --add-data "image_resizer.py;." --add-data "file_handler.py;." --add-data "image_cropper.py;." --add-data "utils.py;." --add-data "app_pages;app_pages" run_app.py
+pyinstaller --onefile --noconsole --name ImageToolkit --splash "splash.png" --collect-all streamlit --collect-all streamlit_cropper --collect-all rembg --collect-all onnxruntime --collect-all pymatting --collect-all scipy --collect-all pooch --collect-all PIL --add-data "app.py;." --add-data "home.py;." --add-data "background_remover.py;." --add-data "image_resizer.py;." --add-data "file_handler.py;." --add-data "image_cropper.py;." --add-data "utils.py;." --add-data "app_pages;app_pages" run_app.py
 
 if errorlevel 1 (
     echo.
